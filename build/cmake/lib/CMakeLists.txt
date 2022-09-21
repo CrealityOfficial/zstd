@@ -11,7 +11,7 @@ project(libzstd C ASM)
 
 set(CMAKE_INCLUDE_CURRENT_DIR TRUE)
 option(ZSTD_BUILD_STATIC "BUILD STATIC LIBRARIES" ON)
-option(ZSTD_BUILD_SHARED "BUILD SHARED LIBRARIES" ON)
+option(ZSTD_BUILD_SHARED "BUILD SHARED LIBRARIES" OFF)
 
 if(NOT ZSTD_BUILD_SHARED AND NOT ZSTD_BUILD_STATIC)
     message(SEND_ERROR "You need to build at least one flavor of libzstd")
@@ -80,22 +80,26 @@ endif ()
 # Split project to static and shared libraries build
 set(library_targets)
 if (ZSTD_BUILD_SHARED)
-    add_library(libzstd_shared SHARED ${Sources} ${Headers} ${PlatformDependResources})
+    __add_real_target(libzstd_shared dll SOURCE ${Sources} ${Headers} ${PlatformDependResources}
+										 INTERFACE ${LIBRARY_DIR}
+										 )
     list(APPEND library_targets libzstd_shared)
     if (ZSTD_MULTITHREAD_SUPPORT)
         set_property(TARGET libzstd_shared APPEND PROPERTY COMPILE_DEFINITIONS "ZSTD_MULTITHREAD")
         if (UNIX)
-            target_link_libraries(libzstd_shared ${THREADS_LIBS})
+            target_link_libraries(libzstd_shared PRIVATE ${THREADS_LIBS})
         endif ()
     endif()
 endif ()
 if (ZSTD_BUILD_STATIC)
-    add_library(libzstd_static STATIC ${Sources} ${Headers})
-    list(APPEND library_targets libzstd_static)
+    __add_real_target(zstd lib SOURCE ${Sources} ${Headers}
+							   INTERFACE ${LIBRARY_DIR}
+							   )
+    list(APPEND library_targets zstd)
     if (ZSTD_MULTITHREAD_SUPPORT)
-        set_property(TARGET libzstd_static APPEND PROPERTY COMPILE_DEFINITIONS "ZSTD_MULTITHREAD")
+        set_property(TARGET zstd APPEND PROPERTY COMPILE_DEFINITIONS "ZSTD_MULTITHREAD")
         if (UNIX)
-            target_link_libraries(libzstd_static ${THREADS_LIBS})
+            target_link_libraries(zstd PRIVATE ${THREADS_LIBS})
         endif ()
     endif ()
 endif ()
@@ -106,13 +110,13 @@ if (MSVC)
         set_property(TARGET libzstd_shared APPEND PROPERTY COMPILE_DEFINITIONS "ZSTD_DLL_EXPORT=1;ZSTD_HEAPMODE=0;_CONSOLE;_CRT_SECURE_NO_WARNINGS")
     endif ()
     if (ZSTD_BUILD_STATIC)
-        set_property(TARGET libzstd_static APPEND PROPERTY COMPILE_DEFINITIONS "ZSTD_HEAPMODE=0;_CRT_SECURE_NO_WARNINGS")
+        set_property(TARGET zstd APPEND PROPERTY COMPILE_DEFINITIONS "ZSTD_HEAPMODE=0;_CRT_SECURE_NO_WARNINGS")
     endif ()
 endif ()
 
 # With MSVC static library needs to be renamed to avoid conflict with import library
 if (MSVC OR (WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND NOT MINGW))
-    set(STATIC_LIBRARY_BASE_NAME zstd_static)
+    set(STATIC_LIBRARY_BASE_NAME zstd)
 else ()
     set(STATIC_LIBRARY_BASE_NAME zstd)
 endif ()
@@ -129,7 +133,7 @@ endif ()
 
 if (ZSTD_BUILD_STATIC)
     set_target_properties(
-            libzstd_static
+            zstd
             PROPERTIES
             POSITION_INDEPENDENT_CODE On
             OUTPUT_NAME ${STATIC_LIBRARY_BASE_NAME})
@@ -161,28 +165,11 @@ if (UNIX OR MINGW)
 endif ()
 
 # install target
-install(FILES
+set(HFILES
     "${LIBRARY_DIR}/zstd.h"
     "${LIBRARY_DIR}/zdict.h"
-    "${LIBRARY_DIR}/zstd_errors.h"
-    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
-
-install(TARGETS ${library_targets}
-    EXPORT zstdExports
-    INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
-    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
-    BUNDLE DESTINATION "${CMAKE_INSTALL_BINDIR}"
-    )
-
-# uninstall target
-if (NOT TARGET uninstall)
-    configure_file(
-            "${CMAKE_CURRENT_SOURCE_DIR}/cmake_uninstall.cmake.in"
-            "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
-            IMMEDIATE @ONLY)
-
-    add_custom_target(uninstall
-            COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
-endif ()
+    "${LIBRARY_DIR}/zstd_errors.h")
+	
+if(CC_INSTALL_ZSTD)
+	__conan_install_files("" SOURCE ${HFILES})
+endif()
