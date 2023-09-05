@@ -187,9 +187,7 @@ ZSTDLIB_API unsigned long long ZSTD_getFrameContentSize(const void *src, size_t 
  *  "empty", "unknown" and "error" results to the same return value (0),
  *  while ZSTD_getFrameContentSize() gives them separate return values.
  * @return : decompressed size of `src` frame content _if known and not empty_, 0 otherwise. */
-ZSTDLIB_API
-ZSTD_DEPRECATED("Replaced by ZSTD_getFrameContentSize")
-unsigned long long ZSTD_getDecompressedSize(const void* src, size_t srcSize);
+ZSTDLIB_API unsigned long long ZSTD_getDecompressedSize(const void* src, size_t srcSize);
 
 /*! ZSTD_findFrameCompressedSize() : Requires v1.4.0+
  * `src` should point to the start of a ZSTD frame or skippable frame.
